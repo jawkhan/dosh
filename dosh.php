@@ -727,6 +727,11 @@ function update_category($db, $id, $category)
     return $db->exec("update transactions set category = $safe_category where id = $id");
 }
 
+function delete_transaction($db, $id)
+{
+    return $db->exec("delete from transactions where id = $id");
+}
+
 // }}}
 
 // {{{ API
@@ -816,6 +821,15 @@ function action_get_spending_by_balanced_money_formula($db)
 {
     $modifiers = extract_date_modifiers($_GET['modifiers'], 'All Transactions'); // todo
     return json_encode(get_spending_by_balanced_money_formula($db, $modifiers));
+}
+
+function action_delete_transaction($db)
+{
+    $id = filter_input(INPUT_POST, 'id', FILTER_SANITIZE_NUMBER_INT);
+    if (!$id) 
+        return json_encode(array('ERROR' => 'Invalid id'));
+    
+    return json_encode(delete_transaction($db, $id));
 }
 
 // }}}
@@ -1423,7 +1437,12 @@ if (!$current_page) {
             
             function descriptionFormatterOverride(el,r,c,d) {
                 el.innerHTML = '<a href="">' + d + '</a><div style="display:none">' + r.getData('id') + '</div>';
-            };            
+            };
+            
+            function deleteFormatterOverride(el,r,c,d) {
+                el.innerHTML = '<a href="" class="delete-transaction">x</a><div style="display:none">' + r.getData('id') + '</div>';
+            };
+            
             return [
                 {key:"id", label:"ID", hidden:true},
                 {key:"transaction_date", label:"Date"},
@@ -1432,6 +1451,7 @@ if (!$current_page) {
                 {key:"needs_wants_savings", label:"Balanced Money"},
                 {key:"amount", label:"Amount", formatter:currencyFormatterOverride},
                 {key:"account_name", label:"Account"},
+                {key:"delete", label:"Delete", formatter:deleteFormatterOverride},
             ];
         }
         
@@ -1456,7 +1476,12 @@ if (!$current_page) {
             tbl.subscribe("postRenderEvent", function() {
                 $('div.yui-dt-liner > a').click(function(e) {
                     var id = $(e.target.nextSibling).text();
-                    alertSingleTransaction(id);
+                    // ugh, do this with selectors
+                    if (e.target.className == 'delete-transaction') {
+                        deleteSingleTransaction(id);
+                    } else {
+                        alertSingleTransaction(id);
+                    }
                     return false;
                 });
             });
@@ -1487,6 +1512,21 @@ if (!$current_page) {
             )
             .error(function() { alert('error'); })
             ;
+        }
+        
+        function deleteSingleTransaction(id) {
+            $.ajax({
+                  type: "POST",
+                  url: "dosh.php",
+                  data: {action: 'delete_transaction', id:id},
+                  dataType: "json",
+                  success: function(data, status) {
+                      location.reload(true);
+                  },
+                  error: function(xhr, statusText, e) {
+                      alert("Error: " + xhr.responseText);
+                  }
+            });
         }
         
         function alertSingleTransaction(id) {

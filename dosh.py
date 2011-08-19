@@ -106,7 +106,12 @@ def parse_egg_file(filename):
     data = []
     account_name = account_names['Egg Card']
     for row in r:
-        date = datetime.strptime(row[0], '%d %b %Y').strftime('%Y-%m-%d')
+        try:
+            date = datetime.strptime(row[0], '%d %b %Y').strftime('%Y-%m-%d')
+        except ValueError:
+            print "Failed to parse", '\t'.join(row), "; skipping"
+            continue
+            
         desc = row[1]
         amount = float(re.search(r'\d+\.\d\d', row[2]).group(0))
         if not row[2].endswith('CR'): # assume debit unless explicitly CR
